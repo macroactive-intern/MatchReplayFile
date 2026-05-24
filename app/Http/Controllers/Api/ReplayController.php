@@ -210,12 +210,15 @@ class ReplayController extends Controller
             return $this->expiredShareResponse();
         }
 
+        $share->loadMissing('replay');
+        $replay = $share->replay;
+
         $this->recordShareAccess($share);
 
         return Storage::disk(ReplayStorage::DISK)->download(
-            $share->replay->stored_path,
-            $share->replay->original_filename,
-            ['Content-Type' => $share->replay->mime_type],
+            $replay->stored_path,
+            $replay->original_filename,
+            ['Content-Type' => $replay->mime_type],
         );
     }
 
