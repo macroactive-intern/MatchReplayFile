@@ -44,8 +44,34 @@ class ReplayPolicy
             return false;
         }
 
-        return $user->guilds()
-            ->whereKey($replay->guild_id)
-            ->exists();
+        return in_array((int) $replay->guild_id, $this->guildIdsFor($user), true);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function guildIdsFor(User $user): array
+    {
+        if ($user->relationLoaded('guilds')) {
+            return $user->guilds
+                ->pluck('id')
+                ->map(fn (int|string $id): int => (int) $id)
+                ->all();
+        }
+
+        $cacheKey = 'replay_policy.guild_ids.'.$user->getKey();
+
+        if (request()->attributes->has($cacheKey)) {
+            return request()->attributes->get($cacheKey);
+        }
+
+        $guildIds = $user->guilds()
+            ->pluck('guilds.id')
+            ->map(fn (int|string $id): int => (int) $id)
+            ->all();
+
+        request()->attributes->set($cacheKey, $guildIds);
+
+        return $guildIds;
     }
 }

@@ -4,6 +4,7 @@ use App\Models\Guild;
 use App\Models\Replay;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 uses(RefreshDatabase::class);
@@ -47,6 +48,28 @@ it('denies access to users who neither own nor share the replay guild', function
         ->and(Gate::forUser($user)->denies('delete', $replay))->toBeTrue();
 });
 
+it('caches guild membership lookups during replay policy checks', function () {
+    $owner = User::factory()->create();
+    $member = User::factory()->create();
+    $guild = Guild::create(['name' => 'Cached Guild']);
+    $replay = replayPolicyReplay($owner, $guild);
+
+    $member->guilds()->attach($guild);
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    expect(Gate::forUser($member)->allows('view', $replay))->toBeTrue();
+
+    $guildQueriesAfterFirstCheck = replayPolicyGuildQueryCount();
+
+    expect(Gate::forUser($member)->allows('download', $replay))->toBeTrue()
+        ->and($guildQueriesAfterFirstCheck)->toBe(1)
+        ->and(replayPolicyGuildQueryCount())->toBe(1);
+
+    DB::disableQueryLog();
+});
+
 function replayPolicyReplay(User $owner, ?Guild $guild = null): Replay
 {
     return Replay::create([
@@ -60,4 +83,11 @@ function replayPolicyReplay(User $owner, ?Guild $guild = null): Replay
         'mime_type' => 'application/octet-stream',
         'status' => Replay::STATUS_READY,
     ]);
+}
+
+function replayPolicyGuildQueryCount(): int
+{
+    return collect(DB::getQueryLog())
+        ->filter(fn (array $query): bool => str_contains($query['query'], 'guild_user'))
+        ->count();
 }
