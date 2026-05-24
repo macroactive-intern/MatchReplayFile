@@ -4,6 +4,7 @@ use App\Models\Guild;
 use App\Models\Replay;
 use App\Models\ReplayShare;
 use App\Models\User;
+use App\Services\ReplayStorage;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -82,14 +83,14 @@ it('does not expose replay analytics to guild members', function () {
 });
 
 it('records replay access events for shared metadata and signed downloads', function () {
-    Storage::fake('local');
+    Storage::fake(ReplayStorage::DISK);
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-25 12:00:00'));
 
     $owner = User::factory()->create();
     $replay = replayAnalyticsReplay($owner);
     $share = replayAnalyticsShare($replay, $owner);
 
-    Storage::disk('local')->put($replay->stored_path, 'REPQ'.str_repeat("\0", 12));
+    Storage::disk(ReplayStorage::DISK)->put($replay->stored_path, 'REPQ'.str_repeat("\0", 12));
 
     $this->getJson("/api/replays/shared/{$share->token}")
         ->assertOk();

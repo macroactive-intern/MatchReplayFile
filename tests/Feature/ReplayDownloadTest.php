@@ -4,6 +4,7 @@ use App\Models\Guild;
 use App\Models\Replay;
 use App\Models\ReplayShare;
 use App\Models\User;
+use App\Services\ReplayStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -53,12 +54,12 @@ it('rejects replay download urls for unauthorized users', function () {
 });
 
 it('streams replay files through signed download urls', function () {
-    Storage::fake('local');
+    Storage::fake(ReplayStorage::DISK);
 
     $owner = User::factory()->create();
     $replay = replayForDownload($owner);
 
-    Storage::disk('local')->put($replay->stored_path, 'REPQ'.str_repeat("\0", 12));
+    Storage::disk(ReplayStorage::DISK)->put($replay->stored_path, 'REPQ'.str_repeat("\0", 12));
 
     $signedUrl = $this->actingAs($owner)
         ->getJson("/api/replays/{$replay->id}/download")
@@ -75,12 +76,12 @@ it('streams replay files through signed download urls', function () {
 });
 
 it('returns forbidden for invalid replay download signatures', function () {
-    Storage::fake('local');
+    Storage::fake(ReplayStorage::DISK);
 
     $owner = User::factory()->create();
     $replay = replayForDownload($owner);
 
-    Storage::disk('local')->put($replay->stored_path, 'REPQ'.str_repeat("\0", 12));
+    Storage::disk(ReplayStorage::DISK)->put($replay->stored_path, 'REPQ'.str_repeat("\0", 12));
 
     $signedUrl = $this->actingAs($owner)
         ->getJson("/api/replays/{$replay->id}/download")
@@ -110,13 +111,13 @@ it('creates a ten minute signed download url for valid share tokens', function (
 });
 
 it('increments share access count when a signed shared download url is used', function () {
-    Storage::fake('local');
+    Storage::fake(ReplayStorage::DISK);
 
     $owner = User::factory()->create();
     $replay = replayForDownload($owner);
     $share = replayDownloadShare($replay, $owner);
 
-    Storage::disk('local')->put($replay->stored_path, 'REPQ'.str_repeat("\0", 12));
+    Storage::disk(ReplayStorage::DISK)->put($replay->stored_path, 'REPQ'.str_repeat("\0", 12));
 
     $signedUrl = $this->getJson("/api/replays/shared/{$share->token}/download")
         ->json('url');
@@ -129,13 +130,13 @@ it('increments share access count when a signed shared download url is used', fu
 });
 
 it('returns forbidden for invalid shared download signatures', function () {
-    Storage::fake('local');
+    Storage::fake(ReplayStorage::DISK);
 
     $owner = User::factory()->create();
     $replay = replayForDownload($owner);
     $share = replayDownloadShare($replay, $owner);
 
-    Storage::disk('local')->put($replay->stored_path, 'REPQ'.str_repeat("\0", 12));
+    Storage::disk(ReplayStorage::DISK)->put($replay->stored_path, 'REPQ'.str_repeat("\0", 12));
 
     $signedUrl = $this->getJson("/api/replays/shared/{$share->token}/download")
         ->json('url');

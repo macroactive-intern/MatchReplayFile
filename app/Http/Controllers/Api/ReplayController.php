@@ -10,6 +10,7 @@ use App\Http\Resources\ReplayResource;
 use App\Models\Replay;
 use App\Models\ReplayShare;
 use App\Services\ReplayService;
+use App\Services\ReplayStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -194,9 +195,10 @@ class ReplayController extends Controller
     {
         $this->recordReplayAccess($replay);
 
-        return Storage::disk('local')->download(
+        return Storage::disk(ReplayStorage::DISK)->download(
             $replay->stored_path,
             $replay->original_filename,
+            ['Content-Type' => $replay->mime_type],
         );
     }
 
@@ -209,9 +211,10 @@ class ReplayController extends Controller
         $share->increment('access_count');
         $this->recordReplayAccess($share->replay, $share);
 
-        return Storage::disk('local')->download(
+        return Storage::disk(ReplayStorage::DISK)->download(
             $share->replay->stored_path,
             $share->replay->original_filename,
+            ['Content-Type' => $share->replay->mime_type],
         );
     }
 
