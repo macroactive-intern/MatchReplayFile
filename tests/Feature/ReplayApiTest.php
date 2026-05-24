@@ -65,6 +65,15 @@ it('lists paginated replays filtered by status and game version', function () {
         ->assertJsonPath('meta.current_page', 1);
 });
 
+it('rejects invalid replay status filters', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->getJson('/api/replays?status=typo')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('status');
+});
+
 it('allows guild members to see guild replays in the index', function () {
     $owner = User::factory()->create();
     $member = User::factory()->create();

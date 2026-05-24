@@ -19,13 +19,31 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class ReplayController extends Controller
 {
+    private const FILTERABLE_STATUSES = [
+        Replay::STATUS_UPLOADED,
+        Replay::STATUS_PROCESSING,
+        Replay::STATUS_READY,
+        Replay::STATUS_FAILED,
+    ];
+
     private const SHARE_ACCESS_DEDUPE_MINUTES = 10;
 
     public function index(Request $request): AnonymousResourceCollection
     {
+        $status = $request->filled('status')
+            ? $request->string('status')->toString()
+            : null;
+
+        if ($status !== null) {
+            $request->validate([
+                'status' => ['string', Rule::in(self::FILTERABLE_STATUSES)],
+            ]);
+        }
+
         $user = $request->user();
         $guildIds = $user->guilds()->pluck('guilds.id');
         $perPage = max(1, min($request->integer('per_page', 15), 100));
@@ -35,8 +53,8 @@ class ReplayController extends Controller
                 $query->where('user_id', $user->getKey())
                     ->orWhereIn('guild_id', $guildIds);
             })
-            ->when($request->filled('status'), function ($query) use ($request): void {
-                $query->where('status', $request->string('status'));
+            ->when($status !== null, function ($query) use ($status): void {
+                $query->where('status', $status);
             })
             ->when($request->filled('game_version'), function ($query) use ($request): void {
                 $query->where('game_version', $request->string('game_version'));
