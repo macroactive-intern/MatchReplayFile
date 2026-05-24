@@ -59,3 +59,25 @@ it('stores an uploaded replay securely and creates a replay record', function ()
         return $job->replay->is($replay);
     });
 });
+
+it('does not delete uploaded files when an ignored insert is not a duplicate', function () {
+    Bus::fake();
+    Storage::fake(ReplayStorage::DISK);
+
+    $user = User::factory()->create();
+    $file = UploadedFile::fake()->createWithContent(
+        'client-name.replay',
+        'REPQ'.random_bytes(64),
+    );
+
+    expect(fn () => app(ReplayService::class)->uploadReplay($user, [
+        'file' => $file,
+        'title' => null,
+        'game_version' => '1.2.3',
+        'guild_id' => null,
+    ]))->toThrow(\RuntimeException::class, 'Unable to create or find replay upload record.');
+
+    expect(Storage::disk(ReplayStorage::DISK)->allFiles("replays/{$user->id}"))->toHaveCount(1);
+
+    Bus::assertNotDispatched(ProcessReplayMetadata::class);
+});

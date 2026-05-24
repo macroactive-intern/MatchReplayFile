@@ -47,13 +47,13 @@ class ReplayService
         ]);
 
         if ($inserted === 0) {
-            $this->storage->delete($storedPath);
-
             $duplicate = $this->findDuplicate($user, $sha256Hash);
 
             if ($duplicate === null) {
                 throw new RuntimeException('Unable to create or find replay upload record.');
             }
+
+            $this->storage->delete($storedPath);
 
             return ReplayUploadResult::duplicate($duplicate);
         }
