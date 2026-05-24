@@ -31,6 +31,8 @@ class ProcessReplayMetadata implements ShouldQueue
     public function handle(): void
     {
         try {
+            $this->markProcessing();
+
             $header = $this->readHeader();
 
             if (! $this->hasValidMagicBytes($header)) {
@@ -90,6 +92,13 @@ class ProcessReplayMetadata implements ShouldQueue
         } finally {
             fclose($stream);
         }
+    }
+
+    private function markProcessing(): void
+    {
+        $this->replay->forceFill([
+            'status' => Replay::STATUS_PROCESSING,
+        ])->save();
     }
 
     private function markFailed(): void
