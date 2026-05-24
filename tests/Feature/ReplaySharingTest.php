@@ -107,6 +107,50 @@ it('rejects sharing by non owners', function () {
         ->assertForbidden();
 });
 
+it('returns replay metadata for a valid share token and increments access count', function () {
+    $owner = User::factory()->create();
+    $replay = replayForSharing($owner);
+    $share = $replay->shares()->create([
+        'shared_by' => $owner->id,
+        'scope' => ReplayShare::SCOPE_LINK,
+        'token' => (string) Str::uuid(),
+        'expires_at' => now()->addHour(),
+    ]);
+
+    $this->getJson("/api/replays/shared/{$share->token}")
+        ->assertOk()
+        ->assertJsonPath('data.id', $replay->id)
+        ->assertJsonPath('data.title', 'Shared Replay')
+        ->assertJsonPath('data.game_version', '1.2.3')
+        ->assertJsonPath('data.status', Replay::STATUS_READY)
+        ->assertJsonPath('data.file_size', 128)
+        ->assertJsonPath('data.guild_id', null);
+
+    expect($share->refresh()->access_count)->toBe(1);
+});
+
+it('returns not found for unknown share tokens', function () {
+    $this->getJson('/api/replays/shared/not-a-real-token')
+        ->assertNotFound();
+});
+
+it('returns forbidden with a clear message for expired share tokens', function () {
+    $owner = User::factory()->create();
+    $replay = replayForSharing($owner);
+    $share = $replay->shares()->create([
+        'shared_by' => $owner->id,
+        'scope' => ReplayShare::SCOPE_LINK,
+        'token' => (string) Str::uuid(),
+        'expires_at' => now()->subMinute(),
+    ]);
+
+    $this->getJson("/api/replays/shared/{$share->token}")
+        ->assertForbidden()
+        ->assertJsonPath('message', 'This replay share token has expired.');
+
+    expect($share->refresh()->access_count)->toBe(0);
+});
+
 function replayForSharing(User $owner, ?Guild $guild = null): Replay
 {
     return Replay::create([
