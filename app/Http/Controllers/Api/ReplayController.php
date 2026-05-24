@@ -179,7 +179,7 @@ class ReplayController extends Controller
             return $this->expiredShareResponse();
         }
 
-        $expiresAt = now()->addMinutes(10);
+        $expiresAt = now()->addMinutes(10)->min($share->expires_at);
 
         return response()->json([
             'url' => URL::temporarySignedRoute(
