@@ -13,7 +13,7 @@ it('reads replay metadata and marks the replay ready', function () {
     Storage::fake(ReplayStorage::DISK);
 
     $payload = replayPayload(durationSeconds: 3661, playerCount: 12);
-    $replay = replayWithStoredPath('replays/1/valid.replay');
+    $replay = replayWithStoredPath('replays/1/valid.replay', sha256Hash: hash('sha256', $payload));
 
     Storage::disk(ReplayStorage::DISK)->put($replay->stored_path, $payload);
 
@@ -30,17 +30,15 @@ it('reads replay metadata and marks the replay ready', function () {
 it('marks replay processing as failed when magic bytes are invalid', function () {
     Storage::fake(ReplayStorage::DISK);
 
-    $replay = replayWithStoredPath('replays/1/invalid.replay');
+    $payload = 'NOPE'.pack('Nn', 90, 2).str_repeat("\0", 6);
+    $replay = replayWithStoredPath('replays/1/invalid.replay', sha256Hash: hash('sha256', $payload));
 
-    Storage::disk(ReplayStorage::DISK)->put(
-        $replay->stored_path,
-        'NOPE'.pack('Nn', 90, 2).str_repeat("\0", 6),
-    );
+    Storage::disk(ReplayStorage::DISK)->put($replay->stored_path, $payload);
 
     (new ProcessReplayMetadata($replay))->handle();
 
     expect($replay->refresh()->status)->toBe(Replay::STATUS_FAILED)
-        ->and($replay->sha256_hash)->toBeNull()
+        ->and($replay->sha256_hash)->toBe(hash('sha256', $payload))
         ->and($replay->duration_seconds)->toBeNull()
         ->and($replay->player_count)->toBeNull();
 });
@@ -66,7 +64,7 @@ function replayPayload(int $durationSeconds, int $playerCount): string
     return 'REPQ'.pack('Nn', $durationSeconds, $playerCount).str_repeat("\0", 6).'body';
 }
 
-function replayWithStoredPath(string $storedPath): Replay
+function replayWithStoredPath(string $storedPath, ?string $sha256Hash = null): Replay
 {
     $user = User::factory()->create();
 
@@ -78,6 +76,7 @@ function replayWithStoredPath(string $storedPath): Replay
         'stored_path' => $storedPath,
         'file_size' => 24,
         'mime_type' => 'application/octet-stream',
+        'sha256_hash' => $sha256Hash,
         'status' => Replay::STATUS_UPLOADED,
     ]);
 }

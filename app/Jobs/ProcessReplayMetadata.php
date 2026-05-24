@@ -7,6 +7,7 @@ use App\Services\ReplayStorage;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Throwable;
 
 class ProcessReplayMetadata implements ShouldQueue
@@ -33,8 +34,7 @@ class ProcessReplayMetadata implements ShouldQueue
     public function handle(): void
     {
         try {
-            $contents = Storage::disk(ReplayStorage::DISK)->get($this->replay->stored_path);
-            $header = substr($contents, 0, self::HEADER_BYTES);
+            $header = $this->readHeader();
 
             if (! $this->hasValidMagicBytes($header)) {
                 $this->markFailed();
@@ -45,7 +45,6 @@ class ProcessReplayMetadata implements ShouldQueue
             $metadata = $this->readMetadata($header);
 
             $this->replay->forceFill([
-                'sha256_hash' => hash('sha256', $contents),
                 'duration_seconds' => $metadata['duration_seconds'],
                 'player_count' => $metadata['player_count'],
                 'status' => Replay::STATUS_READY,
@@ -73,6 +72,27 @@ class ProcessReplayMetadata implements ShouldQueue
             'duration_seconds' => $duration['duration_seconds'],
             'player_count' => $players['player_count'],
         ];
+    }
+
+    private function readHeader(): string
+    {
+        $stream = Storage::disk(ReplayStorage::DISK)->readStream($this->replay->stored_path);
+
+        if ($stream === false) {
+            throw new RuntimeException('Unable to open replay file stream.');
+        }
+
+        try {
+            $header = fread($stream, self::HEADER_BYTES);
+
+            if ($header === false) {
+                throw new RuntimeException('Unable to read replay file header.');
+            }
+
+            return $header;
+        } finally {
+            fclose($stream);
+        }
     }
 
     private function markFailed(): void
