@@ -23,6 +23,21 @@ it('protects replay management routes with sanctum authentication', function (st
     'share creation' => ['post', '/api/replays/1/share'],
 ]);
 
+it('rate limits authenticated replay management routes', function (string $method, string $uri) {
+    $route = Route::getRoutes()->match(Request::create($uri, strtoupper($method)));
+
+    expect($route->gatherMiddleware())->toContain('throttle:120,1');
+})->with([
+    'listing' => ['get', '/api/replays'],
+    'uploads' => ['post', '/api/replays'],
+    'show' => ['get', '/api/replays/1'],
+    'updates' => ['put', '/api/replays/1'],
+    'deletes' => ['delete', '/api/replays/1'],
+    'direct downloads' => ['get', '/api/replays/1/download'],
+    'analytics' => ['get', '/api/replays/1/analytics'],
+    'share creation' => ['post', '/api/replays/1/share'],
+]);
+
 it('leaves shared replay routes public', function () {
     $this->getJson('/api/replays/shared/not-a-token')->assertNotFound();
     $this->getJson('/api/replays/shared/not-a-token/download')->assertNotFound();

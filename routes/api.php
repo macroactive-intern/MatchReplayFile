@@ -8,7 +8,7 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::get('/replays/shared/{token}', [ReplayController::class, 'shared']);
 });
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:120,1'])->group(function () {
     Route::get('/replays', [ReplayController::class, 'index']);
     Route::post('/replays', [ReplayController::class, 'store']);
     Route::get('/replays/{replay}', [ReplayController::class, 'show']);
