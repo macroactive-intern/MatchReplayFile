@@ -77,7 +77,7 @@ class ProcessReplayMetadata implements ShouldQueue
     {
         $stream = Storage::disk(ReplayStorage::DISK)->readStream($this->replay->stored_path);
 
-        if ($stream === false) {
+        if (! is_resource($stream)) {
             throw new RuntimeException('Unable to open replay file stream.');
         }
 
