@@ -146,7 +146,7 @@ it('increments share access count when a signed shared download url is used', fu
     expect($share->refresh()->access_count)->toBe(1);
 });
 
-it('counts a shared metadata view followed by a signed shared download as separate accesses', function () {
+it('does not count a shared metadata view before a signed shared download', function () {
     Storage::fake(ReplayStorage::DISK);
 
     $owner = User::factory()->create();
@@ -158,16 +158,16 @@ it('counts a shared metadata view followed by a signed shared download as separa
     $this->getJson("/api/replays/shared/{$share->token}")
         ->assertOk();
 
-    expect($share->refresh()->access_count)->toBe(1);
-    $this->assertDatabaseCount('replay_access_events', 1);
+    expect($share->refresh()->access_count)->toBe(0);
+    $this->assertDatabaseCount('replay_access_events', 0);
 
     $signedUrl = $this->getJson("/api/replays/shared/{$share->token}/download")
         ->json('url');
 
     $this->get(signedPath($signedUrl))->assertOk();
 
-    expect($share->refresh()->access_count)->toBe(2);
-    $this->assertDatabaseCount('replay_access_events', 2);
+    expect($share->refresh()->access_count)->toBe(1);
+    $this->assertDatabaseCount('replay_access_events', 1);
 });
 
 it('returns forbidden for invalid shared download signatures', function () {

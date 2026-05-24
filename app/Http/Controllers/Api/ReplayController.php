@@ -187,8 +187,6 @@ class ReplayController extends Controller
             return $this->expiredShareResponse();
         }
 
-        $this->recordShareAccess($share);
-
         return new ReplayResource($share->replay);
     }
 

@@ -31,6 +31,8 @@ class ReplayService
         $storedPath = $this->storage->storeAs($file, $user->getKey(), $filename);
         $now = now();
 
+        // insertOrIgnore protects the duplicate-upload race, but bypasses Eloquent create/save events.
+        // Add any creation side effects explicitly here instead of relying on Replay observers.
         $inserted = Replay::query()->insertOrIgnore([
             'user_id' => $user->getKey(),
             'guild_id' => $validatedData['guild_id'] ?? null,

@@ -82,7 +82,7 @@ it('does not expose replay analytics to guild members', function () {
         ->assertForbidden();
 });
 
-it('records shared metadata and signed download access events separately', function () {
+it('records access events for signed downloads only', function () {
     Storage::fake(ReplayStorage::DISK);
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-25 12:00:00'));
 
@@ -95,13 +95,8 @@ it('records shared metadata and signed download access events separately', funct
     $this->getJson("/api/replays/shared/{$share->token}")
         ->assertOk();
 
-    $this->assertDatabaseCount('replay_access_events', 1);
-    $this->assertDatabaseHas('replay_access_events', [
-        'replay_id' => $replay->id,
-        'replay_share_id' => $share->id,
-    ]);
-
-    expect($share->refresh()->access_count)->toBe(1);
+    $this->assertDatabaseCount('replay_access_events', 0);
+    expect($share->refresh()->access_count)->toBe(0);
 
     $directUrl = URL::temporarySignedRoute(
         'api.replays.download.signed',
@@ -121,13 +116,13 @@ it('records shared metadata and signed download access events separately', funct
     $this->get(replayAnalyticsSignedPath($sharedUrl))
         ->assertOk();
 
-    $this->assertDatabaseCount('replay_access_events', 3);
+    $this->assertDatabaseCount('replay_access_events', 2);
     $this->assertDatabaseHas('replay_access_events', [
         'replay_id' => $replay->id,
         'replay_share_id' => $share->id,
     ]);
 
-    expect($share->refresh()->access_count)->toBe(2);
+    expect($share->refresh()->access_count)->toBe(1);
 
     CarbonImmutable::setTestNow();
 });
