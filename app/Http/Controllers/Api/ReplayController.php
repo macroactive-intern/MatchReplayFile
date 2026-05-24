@@ -31,6 +31,8 @@ class ReplayController extends Controller
         Replay::STATUS_FAILED,
     ];
 
+    private const SIGNED_DOWNLOAD_TTL_MINUTES = 10;
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $status = $request->filled('status')
@@ -198,7 +200,7 @@ class ReplayController extends Controller
             return $this->expiredShareResponse();
         }
 
-        $expiresAt = now()->addMinutes(10)->min($share->expires_at);
+        $expiresAt = now()->addMinutes(self::SIGNED_DOWNLOAD_TTL_MINUTES)->min($share->expires_at);
 
         return response()->json([
             'url' => URL::temporarySignedRoute(
@@ -238,7 +240,7 @@ class ReplayController extends Controller
 
     private function signedReplayDownloadResponse(Replay $replay): JsonResponse
     {
-        $expiresAt = now()->addMinutes(10);
+        $expiresAt = now()->addMinutes(self::SIGNED_DOWNLOAD_TTL_MINUTES);
 
         return response()->json([
             'url' => URL::temporarySignedRoute(
