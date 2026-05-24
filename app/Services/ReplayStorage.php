@@ -4,7 +4,6 @@ namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class ReplayStorage
 {
@@ -12,9 +11,18 @@ class ReplayStorage
 
     public function store(UploadedFile $file, int|string $userId): string
     {
+        return $this->storeAs(
+            $file,
+            $userId,
+            $this->filename(),
+        );
+    }
+
+    public function storeAs(UploadedFile $file, int|string $userId, string $filename): string
+    {
         return $file->storeAs(
             $this->directoryFor($userId),
-            $this->filename(),
+            $filename,
             self::DISK,
         );
     }
@@ -31,6 +39,6 @@ class ReplayStorage
 
     private function filename(): string
     {
-        return Str::uuid().'.replay';
+        return (string) \Illuminate\Support\Str::uuid().'.replay';
     }
 }
