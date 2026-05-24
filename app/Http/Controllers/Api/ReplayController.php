@@ -26,6 +26,7 @@ class ReplayController extends Controller
     {
         $user = $request->user();
         $guildIds = $user->guilds()->pluck('guilds.id');
+        $perPage = max(1, min($request->integer('per_page', 15), 100));
 
         $replays = Replay::query()
             ->where(function ($query) use ($user, $guildIds): void {
@@ -39,7 +40,7 @@ class ReplayController extends Controller
                 $query->where('game_version', $request->string('game_version'));
             })
             ->latest()
-            ->paginate($request->integer('per_page', 15));
+            ->paginate($perPage);
 
         return ReplayResource::collection($replays);
     }

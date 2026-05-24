@@ -83,6 +83,22 @@ it('allows guild members to see guild replays in the index', function () {
         ->assertJsonPath('data.0.title', 'Guild Replay');
 });
 
+it('caps replay index pagination size', function () {
+    $user = User::factory()->create();
+
+    foreach (range(1, 105) as $index) {
+        replayForApi($user, [
+            'title' => "Replay {$index}",
+        ]);
+    }
+
+    $this->actingAs($user)
+        ->getJson('/api/replays?per_page=1000000')
+        ->assertOk()
+        ->assertJsonCount(100, 'data')
+        ->assertJsonPath('meta.per_page', 100);
+});
+
 it('shows policy protected replay metadata', function () {
     $owner = User::factory()->create();
     $replay = replayForApi($owner);
