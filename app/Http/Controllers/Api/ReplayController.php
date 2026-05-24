@@ -102,16 +102,17 @@ class ReplayController extends Controller
                 $today->copy()->subDays($daysAgo)->toDateString() => 0,
             ]);
 
-        $replay->accessEvents()
+        $rows = $replay->accessEvents()
+            ->selectRaw('DATE(occurred_at) as date, COUNT(*) as count')
             ->whereBetween('occurred_at', [$start, $end])
-            ->get(['occurred_at'])
-            ->each(function ($event) use ($counts): void {
-                $date = $event->occurred_at->toDateString();
+            ->groupByRaw('DATE(occurred_at)')
+            ->pluck('count', 'date');
 
-                if ($counts->has($date)) {
-                    $counts->put($date, $counts->get($date) + 1);
-                }
-            });
+        $rows->each(function (int|string $count, string $date) use ($counts): void {
+            if ($counts->has($date)) {
+                $counts->put($date, (int) $count);
+            }
+        });
 
         $accessCountByDay = $counts
             ->map(fn (int $count, string $date): array => [
