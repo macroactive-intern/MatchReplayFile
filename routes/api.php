@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/replays/shared/{token}/download', [ReplayController::class, 'sharedDownload']);
 Route::get('/replays/shared/{token}', [ReplayController::class, 'shared']);
 
-Route::middleware('auth')->group(function () {
+Route::middleware('auth:sanctum')->group(function () {
     Route::get('/replays', [ReplayController::class, 'index']);
     Route::post('/replays', [ReplayController::class, 'store']);
     Route::get('/replays/{replay}', [ReplayController::class, 'show']);
