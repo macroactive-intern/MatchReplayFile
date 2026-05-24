@@ -31,8 +31,6 @@ class ReplayController extends Controller
         Replay::STATUS_FAILED,
     ];
 
-    private const SHARE_ACCESS_DEDUPE_MINUTES = 10;
-
     public function index(Request $request): AnonymousResourceCollection
     {
         $status = $request->filled('status')
@@ -270,21 +268,8 @@ class ReplayController extends Controller
     private function recordShareAccess(ReplayShare $share): void
     {
         DB::transaction(function () use ($share): void {
-            $lockedShare = ReplayShare::query()
-                ->whereKey($share->getKey())
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            $alreadyRecorded = $lockedShare->accessEvents()
-                ->where('occurred_at', '>=', now()->subMinutes(self::SHARE_ACCESS_DEDUPE_MINUTES))
-                ->exists();
-
-            if ($alreadyRecorded) {
-                return;
-            }
-
-            $lockedShare->increment('access_count');
-            $this->recordReplayAccess($lockedShare->replay, $lockedShare);
+            $share->increment('access_count');
+            $this->recordReplayAccess($share->replay, $share);
         });
     }
 

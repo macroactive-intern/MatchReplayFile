@@ -82,7 +82,7 @@ it('does not expose replay analytics to guild members', function () {
         ->assertForbidden();
 });
 
-it('deduplicates shared metadata and signed download access events', function () {
+it('records shared metadata and signed download access events separately', function () {
     Storage::fake(ReplayStorage::DISK);
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-25 12:00:00'));
 
@@ -121,13 +121,13 @@ it('deduplicates shared metadata and signed download access events', function ()
     $this->get(replayAnalyticsSignedPath($sharedUrl))
         ->assertOk();
 
-    $this->assertDatabaseCount('replay_access_events', 2);
+    $this->assertDatabaseCount('replay_access_events', 3);
     $this->assertDatabaseHas('replay_access_events', [
         'replay_id' => $replay->id,
         'replay_share_id' => $share->id,
     ]);
 
-    expect($share->refresh()->access_count)->toBe(1);
+    expect($share->refresh()->access_count)->toBe(2);
 
     CarbonImmutable::setTestNow();
 });
