@@ -59,19 +59,17 @@ class ReplayPolicy
                 ->all();
         }
 
-        $cacheKey = 'replay_policy.guild_ids.'.$user->getKey();
+        return self::memoizedGuildIdsFor($user);
+    }
 
-        if (request()->attributes->has($cacheKey)) {
-            return request()->attributes->get($cacheKey);
-        }
-
-        $guildIds = $user->guilds()
+    /**
+     * @return array<int, int>
+     */
+    private static function memoizedGuildIdsFor(User $user): array
+    {
+        return once(fn (): array => $user->guilds()
             ->pluck('guilds.id')
             ->map(fn (int|string $id): int => (int) $id)
-            ->all();
-
-        request()->attributes->set($cacheKey, $guildIds);
-
-        return $guildIds;
+            ->all());
     }
 }
