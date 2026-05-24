@@ -54,4 +54,9 @@ class Replay extends Model
     {
         return $this->hasMany(ReplayShare::class);
     }
+
+    public function accessEvents(): HasMany
+    {
+        return $this->hasMany(ReplayAccessEvent::class);
+    }
 }

@@ -17,6 +17,7 @@ it('protects replay management routes with sanctum authentication', function (st
     'updates' => ['put', '/api/replays/1'],
     'deletes' => ['delete', '/api/replays/1'],
     'direct downloads' => ['get', '/api/replays/1/download'],
+    'analytics' => ['get', '/api/replays/1/analytics'],
     'share creation' => ['post', '/api/replays/1/share'],
 ]);
 

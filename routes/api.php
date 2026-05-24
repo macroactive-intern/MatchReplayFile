@@ -13,6 +13,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/replays/{replay}', [ReplayController::class, 'update']);
     Route::delete('/replays/{replay}', [ReplayController::class, 'destroy']);
     Route::get('/replays/{replay}/download', [ReplayController::class, 'download']);
+    Route::get('/replays/{replay}/analytics', [ReplayController::class, 'analytics']);
     Route::post('/replays/{replay}/share', [ReplayController::class, 'share']);
 });
 

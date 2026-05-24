@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ReplayShare extends Model
 {
@@ -36,5 +37,10 @@ class ReplayShare extends Model
     public function sharedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'shared_by');
+    }
+
+    public function accessEvents(): HasMany
+    {
+        return $this->hasMany(ReplayAccessEvent::class);
     }
 }

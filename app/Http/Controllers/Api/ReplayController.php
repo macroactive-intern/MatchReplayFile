@@ -89,6 +89,55 @@ class ReplayController extends Controller
         return $this->signedReplayDownloadResponse($replay);
     }
 
+    public function analytics(Replay $replay): JsonResponse
+    {
+        Gate::authorize('update', $replay);
+
+        $today = now()->copy()->startOfDay();
+        $start = $today->copy()->subDays(29);
+        $end = $today->copy()->endOfDay();
+
+        $counts = collect(range(29, 0))
+            ->mapWithKeys(fn (int $daysAgo): array => [
+                $today->copy()->subDays($daysAgo)->toDateString() => 0,
+            ]);
+
+        $replay->accessEvents()
+            ->whereBetween('occurred_at', [$start, $end])
+            ->get(['occurred_at'])
+            ->each(function ($event) use ($counts): void {
+                $date = $event->occurred_at->toDateString();
+
+                if ($counts->has($date)) {
+                    $counts->put($date, $counts->get($date) + 1);
+                }
+            });
+
+        $accessCountByDay = $counts
+            ->map(fn (int $count, string $date): array => [
+                'date' => $date,
+                'count' => $count,
+            ])
+            ->values();
+
+        return response()->json([
+            'data' => [
+                'replay_id' => $replay->id,
+                'from' => $start->toDateString(),
+                'to' => $today->toDateString(),
+                'total_access_count' => $counts->sum(),
+                'access_count_by_day' => $accessCountByDay,
+                'labels' => $accessCountByDay->pluck('date')->values(),
+                'datasets' => [
+                    [
+                        'label' => 'Accesses',
+                        'data' => $accessCountByDay->pluck('count')->values(),
+                    ],
+                ],
+            ],
+        ]);
+    }
+
     public function share(StoreReplayShareRequest $request, Replay $replay): JsonResponse
     {
         Gate::authorize('update', $replay);
@@ -115,6 +164,7 @@ class ReplayController extends Controller
         }
 
         $share->increment('access_count');
+        $this->recordReplayAccess($share->replay, $share);
 
         return new ReplayResource($share->replay);
     }
@@ -141,6 +191,8 @@ class ReplayController extends Controller
 
     public function downloadFile(Replay $replay)
     {
+        $this->recordReplayAccess($replay);
+
         return Storage::disk('local')->download(
             $replay->stored_path,
             $replay->original_filename,
@@ -154,6 +206,7 @@ class ReplayController extends Controller
         }
 
         $share->increment('access_count');
+        $this->recordReplayAccess($share->replay, $share);
 
         return Storage::disk('local')->download(
             $share->replay->stored_path,
@@ -188,5 +241,13 @@ class ReplayController extends Controller
         return response()->json([
             'message' => 'This replay share token has expired.',
         ], 403);
+    }
+
+    private function recordReplayAccess(Replay $replay, ?ReplayShare $share = null): void
+    {
+        $replay->accessEvents()->create([
+            'replay_share_id' => $share?->id,
+            'occurred_at' => now(),
+        ]);
     }
 }
