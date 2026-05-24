@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\IndexReplayRequest;
 use App\Http\Requests\StoreReplayRequest;
 use App\Http\Requests\StoreReplayShareRequest;
 use App\Http\Requests\UpdateReplayRequest;
@@ -12,7 +13,6 @@ use App\Models\ReplayShare;
 use App\Services\ReplayService;
 use App\Services\ReplayStorage;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -20,34 +20,17 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class ReplayController extends Controller
 {
-    private const FILTERABLE_STATUSES = [
-        Replay::STATUS_UPLOADED,
-        Replay::STATUS_PROCESSING,
-        Replay::STATUS_READY,
-        Replay::STATUS_FAILED,
-    ];
-
     private const SIGNED_DOWNLOAD_TTL_MINUTES = 10;
 
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(IndexReplayRequest $request): AnonymousResourceCollection
     {
-        $status = $request->filled('status')
-            ? $request->string('status')->toString()
-            : null;
-
-        if ($status !== null) {
-            $request->validate([
-                'status' => ['string', Rule::in(self::FILTERABLE_STATUSES)],
-            ]);
-        }
-
+        $status = $request->filterStatus();
+        $gameVersion = $request->filterGameVersion();
         $user = $request->user();
         $guildIds = $user->guilds()->pluck('guilds.id');
-        $perPage = max(1, min($request->integer('per_page', 15), 100));
 
         $replays = Replay::query()
             ->where(function ($query) use ($user, $guildIds): void {
@@ -57,11 +40,11 @@ class ReplayController extends Controller
             ->when($status !== null, function ($query) use ($status): void {
                 $query->where('status', $status);
             })
-            ->when($request->filled('game_version'), function ($query) use ($request): void {
-                $query->where('game_version', $request->string('game_version'));
+            ->when($gameVersion !== null, function ($query) use ($gameVersion): void {
+                $query->where('game_version', $gameVersion);
             })
             ->latest()
-            ->paginate($perPage);
+            ->paginate($request->perPage());
 
         return ReplayResource::collection($replays);
     }
