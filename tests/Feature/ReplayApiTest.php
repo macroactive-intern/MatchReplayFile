@@ -132,12 +132,12 @@ it('rejects replay updates from non owners', function () {
 });
 
 it('deletes replay records for owners', function () {
-    Storage::fake('local');
+    Storage::fake(ReplayStorage::DISK);
 
     $owner = User::factory()->create();
     $replay = replayForApi($owner);
 
-    Storage::disk('local')->put($replay->stored_path, replayApiPayload());
+    Storage::disk(ReplayStorage::DISK)->put($replay->stored_path, replayApiPayload());
 
     $this->actingAs($owner)
         ->deleteJson("/api/replays/{$replay->id}")
@@ -146,7 +146,7 @@ it('deletes replay records for owners', function () {
     $this->assertDatabaseMissing('replays', [
         'id' => $replay->id,
     ]);
-    Storage::disk('local')->assertMissing($replay->stored_path);
+    Storage::disk(ReplayStorage::DISK)->assertMissing($replay->stored_path);
 });
 
 it('rejects replay deletion from non owners', function () {

@@ -4,6 +4,7 @@ use App\Models\Guild;
 use App\Models\Replay;
 use App\Models\ReplayShare;
 use App\Models\User;
+use App\Services\ReplayStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -60,12 +61,12 @@ it('increments access count when share tokens are resolved', function () {
 });
 
 it('expires temporary signed replay download urls correctly', function () {
-    Storage::fake('local');
+    Storage::fake(ReplayStorage::DISK);
 
     $owner = User::factory()->create();
     $replay = replaySharingFeatureReplay($owner);
 
-    Storage::disk('local')->put($replay->stored_path, replaySharingFeaturePayload());
+    Storage::disk(ReplayStorage::DISK)->put($replay->stored_path, replaySharingFeaturePayload());
 
     $url = URL::temporarySignedRoute(
         'api.replays.download.signed',
@@ -81,17 +82,17 @@ it('expires temporary signed replay download urls correctly', function () {
 });
 
 it('removes the replay file from disk when the replay is deleted', function () {
-    Storage::fake('local');
+    Storage::fake(ReplayStorage::DISK);
 
     $owner = User::factory()->create();
     $replay = replaySharingFeatureReplay($owner);
 
-    Storage::disk('local')->put($replay->stored_path, replaySharingFeaturePayload());
-    Storage::disk('local')->assertExists($replay->stored_path);
+    Storage::disk(ReplayStorage::DISK)->put($replay->stored_path, replaySharingFeaturePayload());
+    Storage::disk(ReplayStorage::DISK)->assertExists($replay->stored_path);
 
     $replay->delete();
 
-    Storage::disk('local')->assertMissing($replay->stored_path);
+    Storage::disk(ReplayStorage::DISK)->assertMissing($replay->stored_path);
 });
 
 function replaySharingFeatureReplay(User $owner, ?Guild $guild = null): Replay
