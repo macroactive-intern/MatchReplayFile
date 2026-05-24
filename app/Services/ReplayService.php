@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Jobs\ProcessReplayMetadata;
 use App\Models\Replay;
 use App\Models\User;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -30,35 +29,38 @@ class ReplayService
 
         $filename = $this->filename();
         $storedPath = $this->storage->storeAs($file, $user->getKey(), $filename);
+        $now = now();
 
-        try {
-            $replay = Replay::create([
-                'user_id' => $user->getKey(),
-                'guild_id' => $validatedData['guild_id'] ?? null,
-                'title' => $validatedData['title'],
-                'game_version' => $validatedData['game_version'],
-                'original_filename' => $file->getClientOriginalName(),
-                'stored_path' => $storedPath,
-                'file_size' => $file->getSize(),
-                'mime_type' => $file->getMimeType(),
-                'sha256_hash' => $sha256Hash,
-                'status' => Replay::STATUS_UPLOADED,
-            ]);
-        } catch (QueryException $exception) {
-            if (! $this->causedByDuplicateReplay($exception)) {
-                throw $exception;
-            }
+        $inserted = Replay::query()->insertOrIgnore([
+            'user_id' => $user->getKey(),
+            'guild_id' => $validatedData['guild_id'] ?? null,
+            'title' => $validatedData['title'],
+            'game_version' => $validatedData['game_version'],
+            'original_filename' => $file->getClientOriginalName(),
+            'stored_path' => $storedPath,
+            'file_size' => $file->getSize(),
+            'mime_type' => $file->getMimeType(),
+            'sha256_hash' => $sha256Hash,
+            'status' => Replay::STATUS_UPLOADED,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
 
+        if ($inserted === 0) {
             $this->storage->delete($storedPath);
 
             $duplicate = $this->findDuplicate($user, $sha256Hash);
 
             if ($duplicate === null) {
-                throw $exception;
+                throw new RuntimeException('Unable to create or find replay upload record.');
             }
 
             return ReplayUploadResult::duplicate($duplicate);
         }
+
+        $replay = Replay::query()
+            ->where('stored_path', $storedPath)
+            ->firstOrFail();
 
         ProcessReplayMetadata::dispatch($replay);
 
@@ -93,15 +95,5 @@ class ReplayService
         }
 
         return $hash;
-    }
-
-    private function causedByDuplicateReplay(QueryException $exception): bool
-    {
-        $message = $exception->getMessage();
-
-        return str_contains($message, 'replays_user_id_sha256_hash_unique')
-            || str_contains($message, 'replays.user_id, replays.sha256_hash')
-            || ($exception->errorInfo[0] ?? null) === '23505'
-            || ($exception->errorInfo[1] ?? null) === 1062;
     }
 }
