@@ -60,7 +60,7 @@ it('stores an uploaded replay securely and creates a replay record', function ()
     });
 });
 
-it('does not delete uploaded files when an ignored insert is not a duplicate', function () {
+it('deletes uploaded files when an ignored insert is not a duplicate', function () {
     Bus::fake();
     Storage::fake(ReplayStorage::DISK);
 
@@ -77,7 +77,7 @@ it('does not delete uploaded files when an ignored insert is not a duplicate', f
         'guild_id' => null,
     ]))->toThrow(\RuntimeException::class, 'Unable to create or find replay upload record.');
 
-    expect(Storage::disk(ReplayStorage::DISK)->allFiles("replays/{$user->id}"))->toHaveCount(1);
+    expect(Storage::disk(ReplayStorage::DISK)->allFiles("replays/{$user->id}"))->toBeEmpty();
 
     Bus::assertNotDispatched(ProcessReplayMetadata::class);
 });
