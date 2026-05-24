@@ -15,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -268,16 +269,23 @@ class ReplayController extends Controller
 
     private function recordShareAccess(ReplayShare $share): void
     {
-        $alreadyRecorded = $share->accessEvents()
-            ->where('occurred_at', '>=', now()->subMinutes(self::SHARE_ACCESS_DEDUPE_MINUTES))
-            ->exists();
+        DB::transaction(function () use ($share): void {
+            $lockedShare = ReplayShare::query()
+                ->whereKey($share->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        if ($alreadyRecorded) {
-            return;
-        }
+            $alreadyRecorded = $lockedShare->accessEvents()
+                ->where('occurred_at', '>=', now()->subMinutes(self::SHARE_ACCESS_DEDUPE_MINUTES))
+                ->exists();
 
-        $share->increment('access_count');
-        $this->recordReplayAccess($share->replay, $share);
+            if ($alreadyRecorded) {
+                return;
+            }
+
+            $lockedShare->increment('access_count');
+            $this->recordReplayAccess($lockedShare->replay, $lockedShare);
+        });
     }
 
     private function recordReplayAccess(Replay $replay, ?ReplayShare $share = null): void
