@@ -3,8 +3,10 @@
 use App\Http\Controllers\Api\ReplayController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/replays/shared/{token}/download', [ReplayController::class, 'sharedDownload']);
-Route::get('/replays/shared/{token}', [ReplayController::class, 'shared']);
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('/replays/shared/{token}/download', [ReplayController::class, 'sharedDownload']);
+    Route::get('/replays/shared/{token}', [ReplayController::class, 'shared']);
+});
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/replays', [ReplayController::class, 'index']);
@@ -17,7 +19,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/replays/{replay}/share', [ReplayController::class, 'share']);
 });
 
-Route::middleware('signed')->group(function () {
+Route::middleware(['signed', 'throttle:60,1'])->group(function () {
     Route::get('/replays/{replay}/download-file', [ReplayController::class, 'downloadFile'])
         ->name('api.replays.download.signed');
     Route::get('/replay-shares/{share}/download-file', [ReplayController::class, 'downloadSharedFile'])

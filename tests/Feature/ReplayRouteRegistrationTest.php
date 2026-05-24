@@ -3,6 +3,8 @@
 use App\Models\Replay;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 uses(RefreshDatabase::class);
 
@@ -25,6 +27,16 @@ it('leaves shared replay routes public', function () {
     $this->getJson('/api/replays/shared/not-a-token')->assertNotFound();
     $this->getJson('/api/replays/shared/not-a-token/download')->assertNotFound();
 });
+
+it('rate limits public replay share routes', function (string $uri) {
+    $route = Route::getRoutes()->match(Request::create($uri, 'GET'));
+
+    expect($route->gatherMiddleware())->toContain('throttle:60,1');
+})->with([
+    'shared metadata' => ['/api/replays/shared/not-a-token'],
+    'shared signed url' => ['/api/replays/shared/not-a-token/download'],
+    'shared file serving' => ['/api/replay-shares/1/download-file'],
+]);
 
 it('allows sanctum authenticated users through replay routes', function () {
     $user = User::factory()->create();
