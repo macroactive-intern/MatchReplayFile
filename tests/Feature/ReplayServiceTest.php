@@ -5,6 +5,7 @@ use App\Models\Replay;
 use App\Models\User;
 use App\Services\ReplayService;
 use App\Services\ReplayStorage;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
@@ -80,4 +81,31 @@ it('deletes uploaded files when an ignored insert is not a duplicate', function 
     expect(Storage::disk(ReplayStorage::DISK)->allFiles("replays/{$user->id}"))->toBeEmpty();
 
     Bus::assertNotDispatched(ProcessReplayMetadata::class);
+});
+
+it('enforces unique stored replay paths', function () {
+    $user = User::factory()->create();
+    $storedPath = "replays/{$user->id}/collision.replay";
+
+    Replay::create([
+        'user_id' => $user->id,
+        'title' => 'Original Path',
+        'game_version' => '1.2.3',
+        'original_filename' => 'original.replay',
+        'stored_path' => $storedPath,
+        'file_size' => 128,
+        'mime_type' => 'application/octet-stream',
+        'status' => Replay::STATUS_UPLOADED,
+    ]);
+
+    expect(fn () => Replay::create([
+        'user_id' => $user->id,
+        'title' => 'Duplicate Path',
+        'game_version' => '1.2.3',
+        'original_filename' => 'duplicate.replay',
+        'stored_path' => $storedPath,
+        'file_size' => 128,
+        'mime_type' => 'application/octet-stream',
+        'status' => Replay::STATUS_UPLOADED,
+    ]))->toThrow(QueryException::class);
 });
