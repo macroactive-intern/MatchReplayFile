@@ -36,6 +36,17 @@ class IndexReplayRequest extends FormRequest
                 'string',
                 Rule::in(self::FILTERABLE_STATUSES),
             ],
+            'game_version' => [
+                'sometimes',
+                'string',
+                'max:20',
+            ],
+            'per_page' => [
+                'sometimes',
+                'integer',
+                'min:1',
+                'max:100',
+            ],
         ];
     }
 
@@ -55,6 +66,6 @@ class IndexReplayRequest extends FormRequest
 
     public function perPage(): int
     {
-        return max(1, min($this->integer('per_page', 15), 100));
+        return $this->integer('per_page', 15);
     }
 }

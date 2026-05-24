@@ -92,21 +92,31 @@ it('allows guild members to see guild replays in the index', function () {
         ->assertJsonPath('data.0.title', 'Guild Replay');
 });
 
-it('caps replay index pagination size', function () {
+it('rejects invalid replay index filters', function (array $query, string $field) {
     $user = User::factory()->create();
 
-    foreach (range(1, 105) as $index) {
-        replayForApi($user, [
-            'title' => "Replay {$index}",
-        ]);
-    }
-
     $this->actingAs($user)
-        ->getJson('/api/replays?per_page=1000000')
-        ->assertOk()
-        ->assertJsonCount(100, 'data')
-        ->assertJsonPath('meta.per_page', 100);
-});
+        ->getJson('/api/replays?'.http_build_query($query))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors($field);
+})->with([
+    'non integer per page' => [
+        ['per_page' => 'abc'],
+        'per_page',
+    ],
+    'zero per page' => [
+        ['per_page' => 0],
+        'per_page',
+    ],
+    'too large per page' => [
+        ['per_page' => 101],
+        'per_page',
+    ],
+    'long game version' => [
+        ['game_version' => str_repeat('1', 21)],
+        'game_version',
+    ],
+]);
 
 it('shows policy protected replay metadata', function () {
     $owner = User::factory()->create();
