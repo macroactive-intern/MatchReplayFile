@@ -3,6 +3,7 @@
 use App\Models\Guild;
 use App\Models\Replay;
 use App\Models\User;
+use App\Policies\ReplayPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -59,15 +60,35 @@ it('caches guild membership lookups during replay policy checks', function () {
     DB::flushQueryLog();
     DB::enableQueryLog();
 
-    expect(Gate::forUser($member)->allows('view', $replay))->toBeTrue();
+    $policy = new ReplayPolicy();
+
+    expect($policy->view($member, $replay))->toBeTrue();
 
     $guildQueriesAfterFirstCheck = replayPolicyGuildQueryCount();
 
-    expect(Gate::forUser($member)->allows('download', $replay))->toBeTrue()
+    expect($policy->download($member, $replay))->toBeTrue()
         ->and($guildQueriesAfterFirstCheck)->toBe(1)
         ->and(replayPolicyGuildQueryCount())->toBe(1);
 
     DB::disableQueryLog();
+});
+
+it('does not share cached guild membership between users on the same policy instance', function () {
+    $owner = User::factory()->create();
+    $firstMember = User::factory()->create();
+    $secondMember = User::factory()->create();
+    $firstGuild = Guild::create(['name' => 'First Guild']);
+    $secondGuild = Guild::create(['name' => 'Second Guild']);
+    $firstReplay = replayPolicyReplay($owner, $firstGuild);
+    $secondReplay = replayPolicyReplay($owner, $secondGuild);
+    $policy = new ReplayPolicy();
+
+    $firstMember->guilds()->attach($firstGuild);
+    $secondMember->guilds()->attach($secondGuild);
+
+    expect($policy->view($firstMember, $firstReplay))->toBeTrue()
+        ->and($policy->view($secondMember, $secondReplay))->toBeTrue()
+        ->and($policy->view($secondMember, $firstReplay))->toBeFalse();
 });
 
 function replayPolicyReplay(User $owner, ?Guild $guild = null): Replay

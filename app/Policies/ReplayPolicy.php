@@ -7,6 +7,11 @@ use App\Models\User;
 
 class ReplayPolicy
 {
+    /**
+     * @var array<int, array<int, int>>
+     */
+    private array $guildIdCache = [];
+
     public function view(User $user, Replay $replay): bool
     {
         return $this->ownsReplay($user, $replay)
@@ -59,17 +64,9 @@ class ReplayPolicy
                 ->all();
         }
 
-        return self::memoizedGuildIdsFor($user);
-    }
-
-    /**
-     * @return array<int, int>
-     */
-    private static function memoizedGuildIdsFor(User $user): array
-    {
-        return once(fn (): array => $user->guilds()
+        return $this->guildIdCache[(int) $user->getKey()] ??= $user->guilds()
             ->pluck('guilds.id')
             ->map(fn (int|string $id): int => (int) $id)
-            ->all());
+            ->all();
     }
 }
