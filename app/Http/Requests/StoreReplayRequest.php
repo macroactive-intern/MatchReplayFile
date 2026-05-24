@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\ReplayFormat;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rule;
@@ -9,8 +10,6 @@ use Illuminate\Validation\Validator;
 
 class StoreReplayRequest extends FormRequest
 {
-    private const REPLAY_MAGIC_BYTES = "REPQ";
-
     private const MAX_REPLAY_SIZE_KILOBYTES = 25 * 1024;
 
     /**
@@ -93,7 +92,7 @@ class StoreReplayRequest extends FormRequest
         }
 
         try {
-            return fread($handle, 4) === self::REPLAY_MAGIC_BYTES;
+            return fread($handle, ReplayFormat::MAGIC_BYTES_LENGTH) === ReplayFormat::MAGIC_BYTES;
         } finally {
             fclose($handle);
         }

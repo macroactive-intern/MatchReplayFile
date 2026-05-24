@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Replay;
 use App\Services\ReplayStorage;
+use App\Support\ReplayFormat;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;
@@ -15,10 +16,6 @@ class ProcessReplayMetadata implements ShouldQueue
     use Queueable;
 
     public int $tries = 2;
-
-    private const REPLAY_MAGIC_BYTES = "REPQ";
-
-    private const HEADER_BYTES = 16;
 
     /**
      * Create a new job instance.
@@ -56,8 +53,8 @@ class ProcessReplayMetadata implements ShouldQueue
 
     private function hasValidMagicBytes(string $header): bool
     {
-        return strlen($header) >= self::HEADER_BYTES
-            && substr($header, 0, 4) === self::REPLAY_MAGIC_BYTES;
+        return strlen($header) >= ReplayFormat::HEADER_BYTES
+            && substr($header, 0, ReplayFormat::MAGIC_BYTES_LENGTH) === ReplayFormat::MAGIC_BYTES;
     }
 
     /**
@@ -83,7 +80,7 @@ class ProcessReplayMetadata implements ShouldQueue
         }
 
         try {
-            $header = fread($stream, self::HEADER_BYTES);
+            $header = fread($stream, ReplayFormat::HEADER_BYTES);
 
             if ($header === false) {
                 throw new RuntimeException('Unable to read replay file header.');
