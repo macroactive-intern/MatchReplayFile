@@ -48,7 +48,7 @@ it('rejects expired share tokens', function () {
         ->assertJsonPath('message', 'This replay share token has expired.');
 });
 
-it('does not increment access count when share tokens are resolved', function () {
+it('increments access count when share tokens are resolved', function () {
     $owner = User::factory()->create();
     $replay = replaySharingFeatureReplay($owner);
     $share = replaySharingFeatureShare($replay, $owner);
@@ -57,7 +57,7 @@ it('does not increment access count when share tokens are resolved', function ()
         ->assertOk()
         ->assertJsonPath('data.id', $replay->id);
 
-    expect($share->refresh()->access_count)->toBe(0);
+    expect($share->refresh()->access_count)->toBe(1);
 });
 
 it('expires temporary signed replay download urls correctly', function () {

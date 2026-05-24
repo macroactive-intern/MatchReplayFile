@@ -107,7 +107,7 @@ it('rejects sharing by non owners', function () {
         ->assertForbidden();
 });
 
-it('returns replay metadata for a valid share token without incrementing access count', function () {
+it('returns replay metadata for a valid share token and increments access count', function () {
     $owner = User::factory()->create();
     $replay = replayForSharing($owner);
     $share = $replay->shares()->create([
@@ -126,7 +126,7 @@ it('returns replay metadata for a valid share token without incrementing access 
         ->assertJsonPath('data.file_size', 128)
         ->assertJsonPath('data.guild_id', null);
 
-    expect($share->refresh()->access_count)->toBe(0);
+    expect($share->refresh()->access_count)->toBe(1);
 });
 
 it('returns not found for unknown share tokens', function () {

@@ -82,7 +82,7 @@ it('does not expose replay analytics to guild members', function () {
         ->assertForbidden();
 });
 
-it('records replay access events for signed downloads only', function () {
+it('deduplicates shared metadata and signed download access events', function () {
     Storage::fake(ReplayStorage::DISK);
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-25 12:00:00'));
 
@@ -94,6 +94,14 @@ it('records replay access events for signed downloads only', function () {
 
     $this->getJson("/api/replays/shared/{$share->token}")
         ->assertOk();
+
+    $this->assertDatabaseCount('replay_access_events', 1);
+    $this->assertDatabaseHas('replay_access_events', [
+        'replay_id' => $replay->id,
+        'replay_share_id' => $share->id,
+    ]);
+
+    expect($share->refresh()->access_count)->toBe(1);
 
     $directUrl = URL::temporarySignedRoute(
         'api.replays.download.signed',

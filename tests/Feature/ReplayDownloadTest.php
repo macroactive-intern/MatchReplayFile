@@ -146,6 +146,30 @@ it('increments share access count when a signed shared download url is used', fu
     expect($share->refresh()->access_count)->toBe(1);
 });
 
+it('does not double count a shared metadata view followed by a signed shared download', function () {
+    Storage::fake(ReplayStorage::DISK);
+
+    $owner = User::factory()->create();
+    $replay = replayForDownload($owner);
+    $share = replayDownloadShare($replay, $owner);
+
+    Storage::disk(ReplayStorage::DISK)->put($replay->stored_path, 'REPQ'.str_repeat("\0", 12));
+
+    $this->getJson("/api/replays/shared/{$share->token}")
+        ->assertOk();
+
+    expect($share->refresh()->access_count)->toBe(1);
+    $this->assertDatabaseCount('replay_access_events', 1);
+
+    $signedUrl = $this->getJson("/api/replays/shared/{$share->token}/download")
+        ->json('url');
+
+    $this->get(signedPath($signedUrl))->assertOk();
+
+    expect($share->refresh()->access_count)->toBe(1);
+    $this->assertDatabaseCount('replay_access_events', 1);
+});
+
 it('returns forbidden for invalid shared download signatures', function () {
     Storage::fake(ReplayStorage::DISK);
 

@@ -22,6 +22,8 @@ use Illuminate\Support\Str;
 
 class ReplayController extends Controller
 {
+    private const SHARE_ACCESS_DEDUPE_MINUTES = 10;
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $user = $request->user();
@@ -166,6 +168,8 @@ class ReplayController extends Controller
             return $this->expiredShareResponse();
         }
 
+        $this->recordShareAccess($share);
+
         return new ReplayResource($share->replay);
     }
 
@@ -206,8 +210,7 @@ class ReplayController extends Controller
             return $this->expiredShareResponse();
         }
 
-        $share->increment('access_count');
-        $this->recordReplayAccess($share->replay, $share);
+        $this->recordShareAccess($share);
 
         return Storage::disk(ReplayStorage::DISK)->download(
             $share->replay->stored_path,
@@ -243,6 +246,20 @@ class ReplayController extends Controller
         return response()->json([
             'message' => 'This replay share token has expired.',
         ], 403);
+    }
+
+    private function recordShareAccess(ReplayShare $share): void
+    {
+        $alreadyRecorded = $share->accessEvents()
+            ->where('occurred_at', '>=', now()->subMinutes(self::SHARE_ACCESS_DEDUPE_MINUTES))
+            ->exists();
+
+        if ($alreadyRecorded) {
+            return;
+        }
+
+        $share->increment('access_count');
+        $this->recordReplayAccess($share->replay, $share);
     }
 
     private function recordReplayAccess(Replay $replay, ?ReplayShare $share = null): void
