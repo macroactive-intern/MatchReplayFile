@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Guild;
 use App\Models\Replay;
 use App\Models\ReplayShare;
 use App\Models\User;
@@ -67,6 +68,19 @@ it('limits replay analytics to the replay owner', function () {
         ->assertForbidden();
 });
 
+it('does not expose replay analytics to guild members', function () {
+    $owner = User::factory()->create();
+    $member = User::factory()->create();
+    $guild = Guild::create(['name' => 'Analytics Guild']);
+    $replay = replayAnalyticsReplay($owner, $guild);
+
+    $member->guilds()->attach($guild);
+
+    $this->actingAs($member)
+        ->getJson("/api/replays/{$replay->id}/analytics")
+        ->assertForbidden();
+});
+
 it('records replay access events for shared metadata and signed downloads', function () {
     Storage::fake('local');
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-25 12:00:00'));
@@ -109,10 +123,11 @@ it('records replay access events for shared metadata and signed downloads', func
     CarbonImmutable::setTestNow();
 });
 
-function replayAnalyticsReplay(User $owner): Replay
+function replayAnalyticsReplay(User $owner, ?Guild $guild = null): Replay
 {
     return Replay::create([
         'user_id' => $owner->id,
+        'guild_id' => $guild?->id,
         'title' => 'Analytics Replay',
         'game_version' => '1.2.3',
         'original_filename' => 'analytics.replay',

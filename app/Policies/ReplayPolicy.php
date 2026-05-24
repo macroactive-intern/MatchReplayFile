@@ -18,6 +18,11 @@ class ReplayPolicy
         return $this->view($user, $replay);
     }
 
+    public function viewAnalytics(User $user, Replay $replay): bool
+    {
+        return $this->ownsReplay($user, $replay);
+    }
+
     public function update(User $user, Replay $replay): bool
     {
         return $this->ownsReplay($user, $replay);

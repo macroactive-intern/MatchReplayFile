@@ -91,7 +91,7 @@ class ReplayController extends Controller
 
     public function analytics(Replay $replay): JsonResponse
     {
-        Gate::authorize('update', $replay);
+        Gate::authorize('viewAnalytics', $replay);
 
         $today = now()->copy()->startOfDay();
         $start = $today->copy()->subDays(29);
