@@ -24,7 +24,8 @@ it('creates a ten minute signed replay download url for authorized users', funct
 
     assertTemporarySignedUrl($response->json('url'));
 
-    expect(now()->diffInSeconds($response->json('expires_at'), false))->toBeBetween(590, 600);
+    expect(now()->diffInSeconds($response->json('expires_at'), false))->toBeBetween(590, 600)
+        ->and($response->json('url'))->not->toContain($replay->stored_path);
 });
 
 it('allows guild members to request replay download urls', function () {
@@ -66,6 +67,28 @@ it('streams replay files through signed download urls', function () {
     $this->get(signedPath($signedUrl))
         ->assertOk()
         ->assertHeader('content-disposition');
+
+    $this->get(signedPath($signedUrl))
+        ->assertOk()
+        ->assertHeader('content-disposition', 'attachment; filename=download.replay')
+        ->assertHeaderMissing('x-accel-redirect');
+});
+
+it('returns forbidden for invalid replay download signatures', function () {
+    Storage::fake('local');
+
+    $owner = User::factory()->create();
+    $replay = replayForDownload($owner);
+
+    Storage::disk('local')->put($replay->stored_path, 'REPQ'.str_repeat("\0", 12));
+
+    $signedUrl = $this->actingAs($owner)
+        ->getJson("/api/replays/{$replay->id}/download")
+        ->json('url');
+
+    $this->getJson(tamperedSignedPath($signedUrl))
+        ->assertForbidden()
+        ->assertJsonPath('message', 'Invalid or expired download signature.');
 });
 
 it('creates a ten minute signed download url for valid share tokens', function () {
@@ -82,7 +105,8 @@ it('creates a ten minute signed download url for valid share tokens', function (
 
     assertTemporarySignedUrl($response->json('url'));
 
-    expect(now()->diffInSeconds($response->json('expires_at'), false))->toBeBetween(590, 600);
+    expect(now()->diffInSeconds($response->json('expires_at'), false))->toBeBetween(590, 600)
+        ->and($response->json('url'))->not->toContain($replay->stored_path);
 });
 
 it('increments share access count when a signed shared download url is used', function () {
@@ -102,6 +126,25 @@ it('increments share access count when a signed shared download url is used', fu
     $this->get(signedPath($signedUrl))->assertOk();
 
     expect($share->refresh()->access_count)->toBe(1);
+});
+
+it('returns forbidden for invalid shared download signatures', function () {
+    Storage::fake('local');
+
+    $owner = User::factory()->create();
+    $replay = replayForDownload($owner);
+    $share = replayDownloadShare($replay, $owner);
+
+    Storage::disk('local')->put($replay->stored_path, 'REPQ'.str_repeat("\0", 12));
+
+    $signedUrl = $this->getJson("/api/replays/shared/{$share->token}/download")
+        ->json('url');
+
+    $this->getJson(tamperedSignedPath($signedUrl))
+        ->assertForbidden()
+        ->assertJsonPath('message', 'Invalid or expired download signature.');
+
+    expect($share->refresh()->access_count)->toBe(0);
 });
 
 it('rejects shared download urls for expired share tokens', function () {
@@ -153,4 +196,9 @@ function signedPath(string $url): string
     $query = parse_url($url, PHP_URL_QUERY);
 
     return $path.'?'.$query;
+}
+
+function tamperedSignedPath(string $url): string
+{
+    return signedPath($url).'tampered';
 }
