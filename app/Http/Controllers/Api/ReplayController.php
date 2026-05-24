@@ -45,11 +45,16 @@ class ReplayController extends Controller
 
     public function store(StoreReplayRequest $request, ReplayService $replayService): JsonResponse
     {
-        $replay = $replayService->uploadReplay($request->user(), $request->validated());
+        $result = $replayService->uploadReplay($request->user(), $request->validated());
 
-        return (new ReplayResource($replay))
+        return (new ReplayResource($result->replay))
+            ->additional([
+                'meta' => [
+                    'duplicate' => $result->duplicate,
+                ],
+            ])
             ->response()
-            ->setStatusCode(Response::HTTP_CREATED);
+            ->setStatusCode($result->duplicate ? Response::HTTP_OK : Response::HTTP_CREATED);
     }
 
     public function show(Replay $replay): ReplayResource

@@ -105,6 +105,66 @@ it('dispatches the replay metadata processing job after upload', function () {
     Bus::assertDispatched(ProcessReplayMetadata::class);
 });
 
+it('returns the existing replay info when the same user uploads a duplicate file', function () {
+    Bus::fake();
+    Storage::fake(ReplayStorage::DISK);
+
+    $user = User::factory()->create();
+    $contents = replayUploadBinary(durationSeconds: 300, playerCount: 2);
+
+    $firstResponse = $this->actingAs($user)
+        ->post('/api/replays', replayUploadPayload([
+            'file' => replayUploadFileWithContents('original.replay', $contents),
+            'title' => 'Original Replay',
+        ]))
+        ->assertCreated()
+        ->assertJsonPath('meta.duplicate', false);
+
+    $firstReplay = Replay::findOrFail($firstResponse->json('data.id'));
+
+    $this->actingAs($user)
+        ->post('/api/replays', replayUploadPayload([
+            'file' => replayUploadFileWithContents('renamed-copy.replay', $contents),
+            'title' => 'Duplicate Attempt',
+        ]))
+        ->assertOk()
+        ->assertJsonPath('data.id', $firstReplay->id)
+        ->assertJsonPath('data.title', 'Original Replay')
+        ->assertJsonPath('meta.duplicate', true);
+
+    expect(Replay::where('user_id', $user->id)->count())->toBe(1)
+        ->and(Storage::disk(ReplayStorage::DISK)->allFiles("replays/{$user->id}"))->toHaveCount(1);
+
+    Bus::assertDispatched(ProcessReplayMetadata::class, 1);
+});
+
+it('allows different users to upload matching replay files', function () {
+    Bus::fake();
+    Storage::fake(ReplayStorage::DISK);
+
+    $firstUser = User::factory()->create();
+    $secondUser = User::factory()->create();
+    $contents = replayUploadBinary(durationSeconds: 300, playerCount: 2);
+
+    $this->actingAs($firstUser)
+        ->post('/api/replays', replayUploadPayload([
+            'file' => replayUploadFileWithContents('first.replay', $contents),
+        ]))
+        ->assertCreated()
+        ->assertJsonPath('meta.duplicate', false);
+
+    $this->actingAs($secondUser)
+        ->post('/api/replays', replayUploadPayload([
+            'file' => replayUploadFileWithContents('second.replay', $contents),
+        ]))
+        ->assertCreated()
+        ->assertJsonPath('meta.duplicate', false);
+
+    expect(Replay::count())->toBe(2);
+
+    Bus::assertDispatched(ProcessReplayMetadata::class, 2);
+});
+
 it('updates replay status to ready after metadata processing succeeds', function () {
     Bus::fake();
     Storage::fake(ReplayStorage::DISK);
@@ -160,8 +220,18 @@ function replayUploadPayload(array $overrides = []): array
 
 function replayUploadFile(int $durationSeconds = 300, int $playerCount = 2): UploadedFile
 {
-    return UploadedFile::fake()->createWithContent(
+    return replayUploadFileWithContents(
         'client-name.replay',
-        'REPQ'.pack('Nn', $durationSeconds, $playerCount).str_repeat("\0", 6).'body',
+        replayUploadBinary($durationSeconds, $playerCount),
     );
+}
+
+function replayUploadFileWithContents(string $name, string $contents): UploadedFile
+{
+    return UploadedFile::fake()->createWithContent($name, $contents);
+}
+
+function replayUploadBinary(int $durationSeconds = 300, int $playerCount = 2): string
+{
+    return 'REPQ'.pack('Nn', $durationSeconds, $playerCount).str_repeat("\0", 6).'body';
 }

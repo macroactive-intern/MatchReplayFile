@@ -23,18 +23,23 @@ it('stores an uploaded replay securely and creates a replay record', function ()
         'REPQ'.random_bytes(64),
     );
 
-    $replay = app(ReplayService::class)->uploadReplay($user, [
+    $result = app(ReplayService::class)->uploadReplay($user, [
         'file' => $file,
         'title' => 'Ranked Final',
         'game_version' => '1.2.3',
         'guild_id' => null,
     ]);
 
+    $replay = $result->replay;
+
+    expect($result->duplicate)->toBeFalse();
+
     expect($replay)->toBeInstanceOf(Replay::class)
         ->and($replay->user_id)->toBe($user->id)
         ->and($replay->title)->toBe('Ranked Final')
         ->and($replay->game_version)->toBe('1.2.3')
         ->and($replay->original_filename)->toBe('client-name.replay')
+        ->and($replay->sha256_hash)->toBe(hash('sha256', $file->getContent()))
         ->and($replay->status)->toBe(Replay::STATUS_UPLOADED)
         ->and($replay->stored_path)->toStartWith("replays/{$user->id}/")
         ->and($replay->stored_path)->toEndWith('.replay');

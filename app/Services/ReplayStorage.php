@@ -37,6 +37,11 @@ class ReplayStorage
         return Storage::disk(self::DISK)->exists($path);
     }
 
+    public function delete(string $path): bool
+    {
+        return Storage::disk(self::DISK)->delete($path);
+    }
+
     private function filename(): string
     {
         return (string) \Illuminate\Support\Str::uuid().'.replay';
